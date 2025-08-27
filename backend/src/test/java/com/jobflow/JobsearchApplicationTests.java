@@ -1,0 +1,12 @@
+package com.jobflow;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+
+@SpringBootTest(classes = JobFlowApplication.class,
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+class JobsearchApplicationTests {
+
+    @Test
+    void contextLoads() { }
+}

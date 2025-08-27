@@ -1,76 +1,100 @@
 package com.jobflow.sources.service;
 
+import com.jobflow.common.cache.SimpleCache;
 import com.jobflow.sources.model.NormalizedJob;
 import com.jobflow.sources.model.RawJob;
 import com.jobflow.sources.ports.JobFetchPort;
+import jakarta.annotation.PostConstruct;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Duration;
-import java.time.Instant;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
+import java.util.UUID;
 
 @Service
 public class SourceOrchestrator {
 
-    private static final int DEFAULT_TTL_MIN = 10;
+    // Cache ~10 minutes; store at most 200 normalized jobs per query key
+    private static final int CACHE_TTL_MIN = 10;
+    private static final int MAX_CACHE_ITEMS = 200;
 
     private final List<JobFetchPort> adapters;
+    private final SimpleCache<String, List<NormalizedJob>> cache =
+            new SimpleCache<>(Duration.ofMinutes(CACHE_TTL_MIN));
 
     public SourceOrchestrator(List<JobFetchPort> adapters) {
         this.adapters = adapters;
     }
 
-    private static class CacheEntry {
-        final List<NormalizedJob> items;
-        final Instant expiresAt;
-        CacheEntry(List<NormalizedJob> items, Instant expiresAt) {
-            this.items = List.copyOf(items);
-            this.expiresAt = expiresAt;
-        }
+    @PostConstruct
+    void logAdapters() {
+        System.out.println("[Orchestrator] adapters detected: " +
+                adapters.stream().map(JobFetchPort::sourceKey).toList());
     }
 
-    private final Map<String, CacheEntry> cache = new ConcurrentHashMap<>();
-    private String key(String t, String l, boolean r) {
-        return (t + "|" + l + "|" + r).toLowerCase();
+    private String key(String title, String location, boolean remoteOnly) {
+        String t = Objects.toString(title, "").trim().toLowerCase(Locale.ROOT);
+        String l = Objects.toString(location, "").trim().toLowerCase(Locale.ROOT);
+        return t + "|" + l + "|" + remoteOnly;
     }
 
+    /**
+     * Fan-out to all sources, merge, normalize, de-dup, sort desc by postedAt.
+     * Caches a capped, normalized list per (title|location|remoteOnly).
+     *
+     * @param jobTitle    title to search
+     * @param location    location filter (can be blank)
+     * @param remoteOnly  remote-only flag
+     * @param max         max number of items the caller wants back (cap on the returned list)
+     */
+    public List<NormalizedJob> fetchAll(String jobTitle, String location, boolean remoteOnly, int max) {
+        final int safeMax = Math.max(1, max); // guard against 0/negative
 
-    public List<NormalizedJob> fetchAll(String jobTitle, String location, boolean remoteOnly, int maxPerSource) {
-        String key = (jobTitle + "|" + location + "|" + remoteOnly).toLowerCase();
-        CacheEntry hit = cache.get(key);
-        if (hit != null && hit.expiresAt.isAfter(Instant.now())) {
-            // serve from cache if it already has enough items
-            if (hit.items.size() >= maxPerSource) return hit.items.subList(0, maxPerSource);
+        String cacheKey = key(jobTitle, location, remoteOnly);
+
+        // Compute and cache (if miss/expired)
+        List<NormalizedJob> merged = cache.getOrCompute(cacheKey, () -> {
+            // ---- Fan-out to adapters ----
+            List<RawJob> raw = new ArrayList<>();
+            for (JobFetchPort a : adapters) {
+                try {
+                    // Ask each adapter for up to MAX_CACHE_ITEMS; adapter may page internally
+                    List<RawJob> part = a.fetch(jobTitle, location, remoteOnly, MAX_CACHE_ITEMS);
+                    System.out.printf("[Orchestrator] %s returned %d items%n",
+                            a.sourceKey(), part == null ? 0 : part.size());
+                    if (part != null) raw.addAll(part);
+                } catch (Exception e) {
+                    System.out.printf("[Orchestrator] %s error: %s%n", a.sourceKey(), e.getMessage());
+                }
+            }
+
+            // ---- Normalize → de-dup → sort (desc by postedAt) ----
+            return raw.stream()
+                    .map(this::normalize)
+                    .distinct()
+                    .sorted(Comparator.comparing(
+                            NormalizedJob::getPostedAt,
+                            Comparator.nullsLast(Comparator.reverseOrder())
+                    ))
+                    .limit(MAX_CACHE_ITEMS) // cap what we store to avoid huge memory
+                    .toList();
+        });
+
+        // ---- Return a view capped to the requested max ----
+        if (merged.size() > safeMax) {
+            // Copy to avoid returning a live subList view
+            return new ArrayList<>(merged.subList(0, safeMax));
         }
-        List<NormalizedJob> all = new ArrayList<>();
-        for (JobFetchPort a : adapters) {
-            List<RawJob> raws = a.fetch(jobTitle, location, remoteOnly, maxPerSource);
-            List<NormalizedJob> normalized = raws.stream().map(this::normalize).toList();
-            all.addAll(normalized);
-        }
-
-        List<NormalizedJob> merged = all.stream()
-                .distinct()
-                .sorted(Comparator.comparing(
-                        NormalizedJob::getPostedAt,
-                        Comparator.nullsLast(Comparator.reverseOrder())
-                ))
-                .toList();
-
-
-        List<NormalizedJob> toCache = merged.size() > DEFAULT_TTL_MIN
-                ? new ArrayList<>(merged.subList(0, DEFAULT_TTL_MIN)) // avoid huge cache; copy to be safe
-                : merged;
-        cache.put(key, new CacheEntry(toCache, Instant.now().plus(Duration.ofMinutes(10))));
-
-        return merged.size() > maxPerSource ? merged.subList(0, maxPerSource) : merged;
-
-
+        return merged;
     }
+
+    // ---- Helpers ----
 
     private NormalizedJob normalize(RawJob r) {
         String id = sha1(r.getSource() + "|" + r.getApplyUrl());
@@ -93,6 +117,7 @@ public class SourceOrchestrator {
             for (byte b : d) sb.append(String.format("%02x", b));
             return sb.toString();
         } catch (Exception e) {
+            // Extremely unlikely; fall back to random id to avoid breaking flow
             return UUID.randomUUID().toString();
         }
     }
