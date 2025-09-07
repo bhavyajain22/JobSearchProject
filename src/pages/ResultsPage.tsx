@@ -1,9 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import JobCard from '../components/JobCard';
 import { getJobs } from '../services/api';
-import { isWithinDays, parseISOOrNull } from '../utils/dates';
 
 type JobDto = {
   id: string;
@@ -15,6 +14,13 @@ type JobDto = {
   postedAt?: string;
 };
 type PageResponse<T> = { items: T[]; page: number; size: number; total: number };
+
+type Filters = {
+  source: string;               // 'all'|'adzuna'|'remotive'|'naukri'
+  postedWithin: string;         // 'any'|'1'|'3'|'7'|'14'|'30'
+  companyContains: string;
+  sortBy: 'relevance'|'recency';
+};
 
 export default function ResultsPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -28,28 +34,30 @@ export default function ResultsPage() {
   const [loading, setLoading] = useState(false);
   const [errMsg, setErrMsg] = useState<string | null>(null);
 
-  // Pending filter inputs
-  const [sourceInput, setSourceInput] = useState<string>('all');
-  const [postedWithinInput, setPostedWithinInput] = useState<string>('any');
-  const [companyContainsInput, setCompanyContainsInput] = useState<string>('');
-  const [sortByInput, setSortByInput] = useState<'relevance'|'recency'>('relevance');
-
-  // Active filters (applied on button click)
-  const [filters, setFilters] = useState({
-    source: 'all',
-    postedWithin: 'any',
-    companyContains: '',
-    sortBy: 'relevance' as 'relevance'|'recency',
+  const [filters, setFilters] = useState<Filters>({
+    source: 'all', postedWithin: 'any', companyContains: '', sortBy: 'relevance'
   });
 
-  // Fetch jobs from backend
+  // pending inputs (Apply button UX)
+  const [sourceInput, setSourceInput] = useState('all');
+  const [postedWithinInput, setPostedWithinInput] = useState('any');
+  const [companyContainsInput, setCompanyContainsInput] = useState('');
+  const [sortByInput, setSortByInput] = useState<'relevance'|'recency'>('relevance');
+
   useEffect(() => {
     if (!prefId) { setErrMsg('Missing prefId. Please submit preferences again.'); return; }
     setErrMsg(null);
     setLoading(true);
     (async () => {
       try {
-        const data: PageResponse<JobDto> = await getJobs(prefId, page, size);
+        const data: PageResponse<JobDto> = await getJobs(
+          prefId, page, size, {
+            source: filters.source,
+            postedWithinDays: filters.postedWithin === 'any' ? undefined : Number(filters.postedWithin),
+            companyContains: filters.companyContains || undefined,
+            sortBy: filters.sortBy
+          }
+        );
         setJobs(data.items ?? []);
         setTotal(data.total ?? 0);
       } catch (e: any) {
@@ -59,9 +67,9 @@ export default function ResultsPage() {
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefId, page, size]);
+  }, [prefId, page, size, filters]);
 
-  // Keep URL in sync
+  // keep URL in sync for back/forward
   useEffect(() => {
     const next = new URLSearchParams(searchParams);
     next.set('prefId', prefId);
@@ -70,45 +78,16 @@ export default function ResultsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
-  // Derived jobs after filtering/sorting
-  const filteredSorted = useMemo(() => {
-    let rows = jobs.slice();
-
-    if (filters.source !== 'all') {
-      rows = rows.filter(r => (r.source || '').toLowerCase() === filters.source);
-    }
-    if (filters.postedWithin !== 'any') {
-      const days = Number(filters.postedWithin);
-      rows = rows.filter(r => isWithinDays(r.postedAt, days));
-    }
-    if (filters.companyContains.trim()) {
-      const q = filters.companyContains.trim().toLowerCase();
-      rows = rows.filter(r => (r.company || '').toLowerCase().includes(q));
-    }
-    if (filters.sortBy === 'recency') {
-      rows.sort((a, b) => {
-        const da = parseISOOrNull(a.postedAt)?.getTime() ?? 0;
-        const db = parseISOOrNull(b.postedAt)?.getTime() ?? 0;
-        return db - da;
-      });
-    }
-    return rows;
-  }, [jobs, filters]);
-
-  const totalPages = Math.max(1, Math.ceil(total / size));
-  const canPrev = page > 0;
-  const canNext = page + 1 < totalPages;
-
+  // apply/clear
   const applyFilters = () => {
     setFilters({
       source: sourceInput,
       postedWithin: postedWithinInput,
       companyContains: companyContainsInput,
-      sortBy: sortByInput,
+      sortBy: sortByInput
     });
-    setPage(0); // reset to first page
+    setPage(0);
   };
-
   const clearFilters = () => {
     setSourceInput('all');
     setPostedWithinInput('any');
@@ -116,6 +95,18 @@ export default function ResultsPage() {
     setSortByInput('relevance');
     setFilters({ source: 'all', postedWithin: 'any', companyContains: '', sortBy: 'relevance' });
     setPage(0);
+  };
+
+  // pagination helpers (First/Last/Jump)
+  const totalPages = Math.max(1, Math.ceil(total / size));
+  const [jumpInput, setJumpInput] = useState<string>('');
+  const gotoFirst = () => setPage(0);
+  const gotoPrev  = () => setPage(p => Math.max(0, p - 1));
+  const gotoNext  = () => setPage(p => Math.min(totalPages - 1, p + 1));
+  const gotoLast  = () => setPage(totalPages - 1);
+  const gotoJump  = () => {
+    const n = parseInt(jumpInput, 10);
+    if (!isNaN(n) && n >= 1 && n <= totalPages) setPage(n - 1);
   };
 
   return (
@@ -189,10 +180,10 @@ export default function ResultsPage() {
         {!loading && !errMsg && (
           <>
             <div className="mt-6 grid gap-4">
-              {filteredSorted.length === 0 ? (
+              {jobs.length === 0 ? (
                 <div className="text-gray-600">No jobs found with the current filters.</div>
               ) : (
-                filteredSorted.map((j) => (
+                jobs.map((j) => (
                   <JobCard
                     key={j.id}
                     title={j.title}
@@ -207,25 +198,34 @@ export default function ResultsPage() {
             </div>
 
             {/* Pagination */}
-            <div className="mt-8 flex items-center justify-between border-t pt-4">
+            <div className="mt-8 flex items-center justify-between border-t pt-4 gap-3 flex-wrap">
               <span className="text-sm text-gray-600">
                 Page {page + 1} of {totalPages} • {total} result{total === 1 ? '' : 's'}
               </span>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setPage((p) => Math.max(0, p - 1))}
-                  disabled={!canPrev}
-                  className="rounded-lg border px-3 py-1.5 text-sm disabled:opacity-50"
-                >
-                  ← Prev
-                </button>
-                <button
-                  onClick={() => setPage((p) => p + 1)}
-                  disabled={!canNext}
-                  className="rounded-lg border px-3 py-1.5 text-sm disabled:opacity-50"
-                >
-                  Next →
-                </button>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setPage(0)} disabled={page === 0}
+                        className="rounded-lg border px-3 py-1.5 text-sm disabled:opacity-50">⏮ First</button>
+                <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
+                        className="rounded-lg border px-3 py-1.5 text-sm disabled:opacity-50">← Prev</button>
+                <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page + 1 >= totalPages}
+                        className="rounded-lg border px-3 py-1.5 text-sm disabled:opacity-50">Next →</button>
+                <button onClick={() => setPage(totalPages - 1)} disabled={page + 1 >= totalPages}
+                        className="rounded-lg border px-3 py-1.5 text-sm disabled:opacity-50">Last ⏭</button>
+
+                <div className="flex items-center gap-1 ml-2">
+                  <input
+                    value={jumpInput}
+                    onChange={e => setJumpInput(e.target.value)}
+                    placeholder="Go to..."
+                    className="w-20 border rounded px-2 py-1 text-sm"
+                  />
+                  <button onClick={() => {
+                    const n = parseInt(jumpInput, 10);
+                    if (!isNaN(n) && n >= 1 && n <= totalPages) setPage(n - 1);
+                  }} className="rounded-lg border px-3 py-1.5 text-sm">
+                    Go
+                  </button>
+                </div>
               </div>
             </div>
           </>
@@ -233,4 +233,8 @@ export default function ResultsPage() {
       </main>
     </div>
   );
+
+  function totalPages() {
+    return Math.max(1, Math.ceil(total / size));
+  }
 }

@@ -46,8 +46,21 @@ export async function postPreferences(data: any) {
 }
 
 // Fetch jobs by preference ID
-export async function getJobs(prefId: string, page = 0, size = 10) {
-  const res = await api.get('/jobs', { params: { prefId, page, size } });
+export async function getJobs(
+  prefId: string,
+  page = 0,
+  size = 10,
+  opts?: { source?: string; postedWithinDays?: number; companyContains?: string; sortBy?: 'relevance'|'recency' }
+) {
+  const res = await api.get('/jobs', {
+    params: {
+      prefId, page, size,
+      source: opts?.source ?? 'all',
+      postedWithinDays: opts?.postedWithinDays,
+      companyContains: opts?.companyContains,
+      sortBy: opts?.sortBy ?? 'relevance',
+    }
+  });
   return res.data;
 }
 

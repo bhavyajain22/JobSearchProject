@@ -1,4 +1,4 @@
-package com.jobflow.model;
+package com.jobflow.jobs.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 

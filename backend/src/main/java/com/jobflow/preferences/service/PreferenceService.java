@@ -17,7 +17,7 @@ public class PreferenceService {
         return id;
     }
 
-    public PreferenceDto get(String id) {
+    public PreferenceDto getById(String id) {
         return store.get(id);
     }
 }

@@ -1,43 +1,33 @@
-// backend/src/main/java/com/jobflow/jobs/controller/JobsController.java
 package com.jobflow.jobs.controller;
 
 import com.jobflow.common.dto.PageResponse;
 import com.jobflow.jobs.dto.JobDto;
 import com.jobflow.jobs.service.JobService;
-import com.jobflow.preferences.dto.PreferenceDto;
-import com.jobflow.preferences.service.PreferenceService;
-import com.jobflow.common.exception.AppException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/jobs")   // <—— NO /api here
-
+@RequestMapping("/jobs")   // <— important: plain /jobs
+@RequiredArgsConstructor
 public class JobsController {
 
-
     private final JobService jobService;
-    private final PreferenceService preferenceService;
 
-    public JobsController(JobService jobService, PreferenceService preferenceService) {
+    public JobsController(JobService jobService) {
         this.jobService = jobService;
-        this.preferenceService = preferenceService;
     }
 
     @GetMapping
     public PageResponse<JobDto> search(
             @RequestParam String prefId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "10") int size,
+            // server-side filters
+            @RequestParam(required = false, defaultValue = "all") String source,      // all|adzuna|remotive|naukri
+            @RequestParam(required = false) Integer postedWithinDays,                 // 1|3|7|14|30
+            @RequestParam(required = false) String companyContains,
+            @RequestParam(required = false, defaultValue = "relevance") String sortBy // relevance|recency
     ) {
-        PreferenceDto pref = preferenceService.get(prefId);
-        if (pref == null) throw AppException.notFound("Preference not found: " + prefId);
-
-        return jobService.search(
-                pref.getJobTitle(),
-                pref.getLocation(),
-                pref.isRemoteOnly(),
-                page, size
-        );
+        return jobService.search(prefId, page, size, source, postedWithinDays, companyContains, sortBy);
     }
 }
