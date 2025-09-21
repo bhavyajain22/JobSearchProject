@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import JobCard from '../components/JobCard';
-import { getJobs } from '../services/api';
+import { getJobs, saveAlert, getFacets } from '../services/api'; // <-- added getFacets
 
 type JobDto = {
   id: string;
@@ -44,6 +44,16 @@ export default function ResultsPage() {
   const [companyContainsInput, setCompanyContainsInput] = useState('');
   const [sortByInput, setSortByInput] = useState<'relevance'|'recency'>('relevance');
 
+  // facets (counts)
+  const [facets, setFacets] = useState<{
+    sourceCounts: Record<string, number>,
+    recencyCounts: Record<string, number>,
+    total: number
+  } | null>(null);
+
+  // alert email
+  const [alertEmail, setAlertEmail] = useState('');
+
   useEffect(() => {
     if (!prefId) { setErrMsg('Missing prefId. Please submit preferences again.'); return; }
     setErrMsg(null);
@@ -68,6 +78,22 @@ export default function ResultsPage() {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefId, page, size, filters]);
+
+  // fetch facet counts whenever prefId or facet-scope inputs change
+  useEffect(() => {
+    if (!prefId) return;
+    (async () => {
+      try {
+        const f = await getFacets(prefId, {
+          companyContains: companyContainsInput || undefined,
+          sortBy: sortByInput
+        });
+        setFacets(f);
+      } catch {
+        setFacets(null);
+      }
+    })();
+  }, [prefId, companyContainsInput, sortByInput]);
 
   // keep URL in sync for back/forward
   useEffect(() => {
@@ -109,6 +135,19 @@ export default function ResultsPage() {
     if (!isNaN(n) && n >= 1 && n <= totalPages) setPage(n - 1);
   };
 
+  // alerts
+  async function onSaveAlert() {
+    if (!prefId) { setErrMsg('No prefId found. Please submit preferences.'); return; }
+    if (!alertEmail || !alertEmail.includes('@')) { setErrMsg('Please enter a valid email.'); return; }
+    try {
+      setErrMsg(null);
+      await saveAlert(alertEmail.trim(), prefId);
+      alert('Saved! You will receive job alerts at ' + alertEmail);
+    } catch (e: any) {
+      setErrMsg(e?.message || 'Failed to save alert');
+    }
+  }
+
   return (
     <div className="min-h-screen bg-white">
       <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} />
@@ -118,6 +157,23 @@ export default function ResultsPage() {
           <Link to="/preferences" className="text-blue-600 hover:underline text-sm">Change Preferences</Link>
         </div>
 
+        {/* Alerts */}
+        <div className="mt-3 flex items-center gap-2">
+          <input
+            value={alertEmail}
+            onChange={(e) => setAlertEmail(e.target.value)}
+            placeholder="your@email.com"
+            className="border rounded px-2 py-1"
+          />
+          <button
+            type="button"
+            onClick={onSaveAlert} // <-- use the handler, not saveAlert directly
+            className="rounded bg-green-600 px-3 py-1.5 text-white hover:bg-green-700"
+          >
+            Save & Get Alerts
+          </button>
+        </div>
+
         {/* Filters */}
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 bg-gray-50 border rounded-xl p-3">
           <div className="flex flex-col">
@@ -125,10 +181,10 @@ export default function ResultsPage() {
             <select className="border rounded px-2 py-1"
                     value={sourceInput}
                     onChange={e => setSourceInput(e.target.value)}>
-              <option value="all">All sources</option>
-              <option value="adzuna">Adzuna</option>
-              <option value="remotive">Remotive</option>
-              <option value="naukri">Naukri</option>
+              <option value="all">All sources{facets ? ` (${facets.total})` : ''}</option>
+              <option value="adzuna">Adzuna{facets ? ` (${facets.sourceCounts?.adzuna ?? 0})` : ''}</option>
+              <option value="remotive">Remotive{facets ? ` (${facets.sourceCounts?.remotive ?? 0})` : ''}</option>
+              <option value="naukri">Naukri{facets ? ` (${facets.sourceCounts?.naukri ?? 0})` : ''}</option>
             </select>
           </div>
           <div className="flex flex-col">
@@ -136,12 +192,12 @@ export default function ResultsPage() {
             <select className="border rounded px-2 py-1"
                     value={postedWithinInput}
                     onChange={e => setPostedWithinInput(e.target.value)}>
-              <option value="any">Any time</option>
-              <option value="1">Last 24 hours</option>
-              <option value="3">Last 3 days</option>
-              <option value="7">Last 7 days</option>
-              <option value="14">Last 14 days</option>
-              <option value="30">Last 30 days</option>
+              <option value="any">Any time{facets ? ` (${facets.recencyCounts?.any ?? 0})` : ''}</option>
+              <option value="1">Last 24 hours{facets ? ` (${facets.recencyCounts?.["1"] ?? 0})` : ''}</option>
+              <option value="3">Last 3 days{facets ? ` (${facets.recencyCounts?.["3"] ?? 0})` : ''}</option>
+              <option value="7">Last 7 days{facets ? ` (${facets.recencyCounts?.["7"] ?? 0})` : ''}</option>
+              <option value="14">Last 14 days{facets ? ` (${facets.recencyCounts?.["14"] ?? 0})` : ''}</option>
+              <option value="30">Last 30 days{facets ? ` (${facets.recencyCounts?.["30"] ?? 0})` : ''}</option>
             </select>
           </div>
           <div className="flex flex-col">
@@ -203,13 +259,13 @@ export default function ResultsPage() {
                 Page {page + 1} of {totalPages} • {total} result{total === 1 ? '' : 's'}
               </span>
               <div className="flex items-center gap-2">
-                <button onClick={() => setPage(0)} disabled={page === 0}
+                <button onClick={gotoFirst} disabled={page === 0}
                         className="rounded-lg border px-3 py-1.5 text-sm disabled:opacity-50">⏮ First</button>
-                <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
+                <button onClick={gotoPrev} disabled={page === 0}
                         className="rounded-lg border px-3 py-1.5 text-sm disabled:opacity-50">← Prev</button>
-                <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page + 1 >= totalPages}
+                <button onClick={gotoNext} disabled={page + 1 >= totalPages}
                         className="rounded-lg border px-3 py-1.5 text-sm disabled:opacity-50">Next →</button>
-                <button onClick={() => setPage(totalPages - 1)} disabled={page + 1 >= totalPages}
+                <button onClick={gotoLast} disabled={page + 1 >= totalPages}
                         className="rounded-lg border px-3 py-1.5 text-sm disabled:opacity-50">Last ⏭</button>
 
                 <div className="flex items-center gap-1 ml-2">
@@ -219,10 +275,7 @@ export default function ResultsPage() {
                     placeholder="Go to..."
                     className="w-20 border rounded px-2 py-1 text-sm"
                   />
-                  <button onClick={() => {
-                    const n = parseInt(jumpInput, 10);
-                    if (!isNaN(n) && n >= 1 && n <= totalPages) setPage(n - 1);
-                  }} className="rounded-lg border px-3 py-1.5 text-sm">
+                  <button onClick={gotoJump} className="rounded-lg border px-3 py-1.5 text-sm">
                     Go
                   </button>
                 </div>
@@ -233,8 +286,4 @@ export default function ResultsPage() {
       </main>
     </div>
   );
-
-  function totalPages() {
-    return Math.max(1, Math.ceil(total / size));
-  }
 }

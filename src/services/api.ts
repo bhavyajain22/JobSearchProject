@@ -63,6 +63,28 @@ export async function getJobs(
   });
   return res.data;
 }
+  export async function getFacets(
+    prefId: string,
+    opts?: { companyContains?: string; sortBy?: 'relevance'|'recency' }
+  ) {
+    const res = await api.get('/jobs/facets', {
+      params: {
+        prefId,
+        companyContains: opts?.companyContains,
+        sortBy: opts?.sortBy ?? 'relevance',
+      }
+    });
+    return res.data as {
+      sourceCounts: Record<string, number>;
+      recencyCounts: Record<string, number>;
+      total: number;
+    };
+}
+
+export async function saveAlert(email: string, prefId: string) {
+  const res = await api.post('/alerts', null, { params: { email, prefId } });
+  return res.data;
+}
 
 // Example user profile endpoints (keep for later auth features)
 export const userAPI = {
