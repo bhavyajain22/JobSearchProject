@@ -68,8 +68,8 @@ public class AdzunaAdapter implements JobFetchPort {
                         String locDisp = getText(r.path("location"), "display_name");
                         String applyUrl = getText(r, "redirect_url");
                         String created = getText(r, "created");
-                        Instant postedAt = null;
-                        try { if (created != null) postedAt = ZonedDateTime.parse(created).toInstant(); } catch (Exception ignored) {}
+                        String postedAt = null;
+                        try { if (created != null) postedAt = String.valueOf(ZonedDateTime.parse(created).toInstant()); } catch (Exception ignored) {}
 
                         if (title == null || applyUrl == null) continue;
                         out.add(new RawJob("adzuna", title, nonNull(company), nonNull(locDisp), applyUrl, postedAt, null));

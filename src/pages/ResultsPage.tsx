@@ -53,6 +53,11 @@ export default function ResultsPage() {
 
   // alert email
   const [alertEmail, setAlertEmail] = useState('');
+  const [alertChannel, setAlertChannel] = useState<'EMAIL' | 'WHATSAPP'>('EMAIL');
+  const [savingAlert, setSavingAlert] = useState(false);
+  const [alertSuccess, setAlertSuccess] = useState(false);
+  const [alertFrequency, setAlertFrequency] = useState<'DAILY' | 'EVERY_3_DAYS' | 'WEEKLY'>('DAILY');
+
 
   useEffect(() => {
     if (!prefId) { setErrMsg('Missing prefId. Please submit preferences again.'); return; }
@@ -135,13 +140,39 @@ export default function ResultsPage() {
     if (!isNaN(n) && n >= 1 && n <= totalPages) setPage(n - 1);
   };
 
+  async function sendTestAlert() {
+    if (!prefId) {
+      alert("Please submit preferences first.");
+      return;
+    }
+
+    try {
+      const res = await fetch(
+        `http://localhost:3001/alerts/test?prefId=${prefId}&channel=${alertChannel}`
+      );
+      const text = await res.text();
+      alert(text);
+    } catch (e: any) {
+      alert("❌ Failed to send test alert: " + e.message);
+    }
+  }
+
+
   // alerts
   async function onSaveAlert() {
-    if (!prefId) { setErrMsg('No prefId found. Please submit preferences.'); return; }
+    if (!prefId) { setErrMsg('Preference not found. Please submit preferences.'); return; }
     if (!alertEmail || !alertEmail.includes('@')) { setErrMsg('Please enter a valid email.'); return; }
+    if (!alertEmail.trim()) {
+        setErrMsg('Please enter a valid contact.');
+        return;
+      }
+
     try {
+        setSavingAlert(true);
+      setAlertSuccess(false);
       setErrMsg(null);
-      await saveAlert(alertEmail.trim(), prefId);
+          await saveAlert(prefId, alertEmail.trim(), alertChannel, alertFrequency);
+          setAlertSuccess(true);
       alert('Saved! You will receive job alerts at ' + alertEmail);
     } catch (e: any) {
       setErrMsg(e?.message || 'Failed to save alert');
@@ -157,22 +188,120 @@ export default function ResultsPage() {
           <Link to="/preferences" className="text-blue-600 hover:underline text-sm">Change Preferences</Link>
         </div>
 
-        {/* Alerts */}
-        <div className="mt-3 flex items-center gap-2">
-          <input
-            value={alertEmail}
-            onChange={(e) => setAlertEmail(e.target.value)}
-            placeholder="your@email.com"
-            className="border rounded px-2 py-1"
-          />
-          <button
-            type="button"
-            onClick={onSaveAlert} // <-- use the handler, not saveAlert directly
-            className="rounded bg-green-600 px-3 py-1.5 text-white hover:bg-green-700"
-          >
-            Save & Get Alerts
-          </button>
+        {/* === Alerts Section === */}
+        <div className="mt-6 p-5 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-100 shadow-sm">
+          <h2 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
+            💌 Stay Updated
+          </h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Get notified about new <b>{filters.source === 'all' ? 'matching' : filters.source}</b> jobs as soon as they’re posted.
+          </p>
+
+          <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+            <div className="flex-1">
+              <label className="block text-xs text-gray-600 mb-1">Contact (Email or WhatsApp)</label>
+              <input
+                type="text"
+                placeholder="e.g. you@example.com or +919876543210"
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                value={alertEmail}
+                onChange={e => setAlertEmail(e.target.value)}
+              />
+            </div>
+
+
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">Channel</label>
+              <select
+                className="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                value={alertChannel}
+                onChange={e => setAlertChannel(e.target.value as 'EMAIL' | 'WHATSAPP')}
+              >
+                <option value="EMAIL">Email</option>
+                <option value="WHATSAPP">WhatsApp</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">Frequency</label>
+              <select
+                className="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                value={alertFrequency}
+                onChange={e => setAlertFrequency(e.target.value as 'DAILY' | 'EVERY_3_DAYS' | 'WEEKLY')}
+              >
+                <option value="DAILY">Daily</option>
+                <option value="EVERY_3_DAYS">Every 3 Days</option>
+                <option value="WEEKLY">Weekly</option>
+              </select>
+            </div>
+
+
+            <div className="flex items-center">
+              <button
+                onClick={onSaveAlert}
+                disabled={savingAlert}
+                className={`flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-white text-sm font-medium shadow-md transition-all ${
+                  savingAlert
+                    ? 'bg-blue-400 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700 active:scale-[0.98]'
+                }`}
+              >
+                {savingAlert ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                    </svg>
+                    Saving...
+                  </>
+                ) : (
+                  <>💾 Save & Get Alerts</>
+                )}
+              </button>
+            </div>
+            <div className="flex items-center">
+              <button
+                onClick={onSaveAlert}
+                disabled={savingAlert}
+                className={`flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-white text-sm font-medium shadow-md transition-all ${
+                  savingAlert
+                    ? 'bg-blue-400 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700 active:scale-[0.98]'
+                }`}
+              >
+                {savingAlert ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                    </svg>
+                    Saving...
+                  </>
+                ) : (
+                  <>💾 Save & Get Alerts</>
+                )}
+              </button>
+
+              {/* New Test Button */}
+              <button
+                onClick={sendTestAlert}
+                className="ml-3 rounded-lg border border-green-500 text-green-600 px-4 py-2 text-sm font-medium hover:bg-green-50 transition-all"
+              >
+                🚀 Send Test Alert
+              </button>
+            </div>
+
+          </div>
+
+          {alertSuccess && (
+            <div className="mt-4 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2 animate-fadeIn">
+              ✅ {alertChannel === 'EMAIL'
+                ? `You’ll now receive job updates at ${alertEmail}.`
+                : `We’ll send WhatsApp job alerts to ${alertEmail}.`}
+            </div>
+          )}
         </div>
+
 
         {/* Filters */}
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 bg-gray-50 border rounded-xl p-3">

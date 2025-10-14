@@ -9,7 +9,7 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.backend</groupId>
-	<artifactId>Jobsearch</artifactId>
+	<artifactId>backend</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>Jobsearch</name>
 	<description>Demo project for Spring Boot</description>
@@ -78,6 +78,18 @@
 			<artifactId>spring-boot-starter-mail</artifactId>
 			<version>3.5.3</version>
 		</dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>1.18.32</version> <!-- ✅ latest stable as of 2025 -->
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.twilio.sdk</groupId>
+            <artifactId>twilio</artifactId>
+            <version>9.0.0</version>
+        </dependency>
 	</dependencies>
 
 	<build>
@@ -90,6 +102,7 @@
 						<path>
 							<groupId>org.projectlombok</groupId>
 							<artifactId>lombok</artifactId>
+                            <version>1.18.32</version>
 						</path>
 					</annotationProcessorPaths>
 				</configuration>

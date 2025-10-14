@@ -45,6 +45,12 @@ export async function postPreferences(data: any) {
   return res.data; // expected { prefId: "uuid" }
 }
 
+export async function saveAlertContact(prefId: string, contact: string, channel: 'EMAIL'|'WHATSAPP') {
+  const res = await api.post('/alerts', null, { params: { prefId, contact, channel } });
+  return res.data;
+}
+
+
 // Fetch jobs by preference ID
 export async function getJobs(
   prefId: string,
@@ -81,10 +87,24 @@ export async function getJobs(
     };
 }
 
-export async function saveAlert(email: string, prefId: string) {
-  const res = await api.post('/alerts', null, { params: { email, prefId } });
+export async function saveAlert(
+  prefId: string,
+  contact: string,
+  channel: 'EMAIL' | 'WHATSAPP',
+  frequency: 'DAILY' | 'EVERY_3_DAYS' | 'WEEKLY'
+) {
+  const res = await api.post(`/alerts`, null, {
+    params: {
+      prefId,
+      contact,
+      channel,
+      frequency,
+    },
+  });
   return res.data;
 }
+
+
 
 // Example user profile endpoints (keep for later auth features)
 export const userAPI = {
