@@ -3,6 +3,7 @@ package com.jobflow.alerts.service;
 import com.jobflow.jobs.dto.JobDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import jakarta.mail.internet.MimeMessage;

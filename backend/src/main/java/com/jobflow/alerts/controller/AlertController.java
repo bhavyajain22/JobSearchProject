@@ -11,6 +11,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/alerts")
 public class AlertController {
@@ -44,6 +46,23 @@ public class AlertController {
     ) {
         SavedSearch s = alertService.saveAlert(prefId, contact, channel, String.valueOf(frequency));
         return ResponseEntity.ok(s);
+    }
+
+    @GetMapping
+    public List<SavedSearch> listAll() {
+        return alertService.getAll();
+    }
+
+    @PutMapping("/{id}")
+    public SavedSearch update(
+            @PathVariable String id,
+            @RequestBody SavedSearch updated) {
+        return alertService.update(id, updated);
+    }
+
+    @DeleteMapping("/{id}")
+    public void delete(@PathVariable String id) {
+        alertService.delete(id);
     }
 
     @GetMapping("/test")

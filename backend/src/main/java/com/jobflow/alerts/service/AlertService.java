@@ -32,6 +32,25 @@ public class AlertService {
         this.notificationService = notificationService;
     }
 
+    public List<SavedSearch> getAll() {
+        return repo.findAll();
+    }
+
+    @Transactional
+    public SavedSearch update(String id, SavedSearch updated) {
+        return repo.findById(id).map(existing -> {
+            existing.setChannel(updated.getChannel());
+            existing.setFrequency(updated.getFrequency());
+            existing.setContact(updated.getContact());
+            return repo.save(existing);
+        }).orElseThrow(() -> new RuntimeException("Alert not found: " + id));
+    }
+
+    @Transactional
+    public void delete(String id) {
+        repo.deleteById(id);
+    }
+
     @Transactional
     public SavedSearch saveAlert(String prefId, String contact, AlertChannel channel, String frequencyStr) {
         SavedSearch.AlertFrequency frequency = SavedSearch.AlertFrequency.DAILY;

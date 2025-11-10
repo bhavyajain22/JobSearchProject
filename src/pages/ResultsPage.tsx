@@ -4,6 +4,7 @@ import Header from '../components/Header';
 import JobCard from '../components/JobCard';
 import { getJobs, saveAlert, getFacets } from '../services/api'; // <-- added getFacets
 
+
 type JobDto = {
   id: string;
   title: string;
@@ -181,7 +182,6 @@ export default function ResultsPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} />
       <main className="max-w-5xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <h1 className="text-2xl font-bold">Job Matches</h1>
@@ -258,6 +258,13 @@ export default function ResultsPage() {
                   <>💾 Save & Get Alerts</>
                 )}
               </button>
+              <Link
+                to="/alerts"
+                className="rounded border border-blue-600 text-blue-600 px-4 py-2 hover:bg-blue-50 ml-2"
+              >
+                Manage Alerts
+              </Link>
+
             </div>
             <div className="flex items-center">
               <button
