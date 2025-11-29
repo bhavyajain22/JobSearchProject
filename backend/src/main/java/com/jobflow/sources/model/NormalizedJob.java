@@ -10,13 +10,15 @@ public class NormalizedJob {
     private String location;
     private String source;
     private String applyUrl;
-    private Instant postedAt;
+    private String postedAt;
 
     public NormalizedJob() {}
 
-    public NormalizedJob(String id, String title, String company, String location, String source, String applyUrl, Instant postedAt) {
+    public NormalizedJob(String id, String title, String company, String location, String source, String applyUrl, String postedAt) {
         this.id = id; this.title = title; this.company = company; this.location = location; this.source = source; this.applyUrl = applyUrl; this.postedAt = postedAt;
     }
+
+
 
     public String getId() { return id; }
     public String getTitle() { return title; }
@@ -24,7 +26,7 @@ public class NormalizedJob {
     public String getLocation() { return location; }
     public String getSource() { return source; }
     public String getApplyUrl() { return applyUrl; }
-    public Instant getPostedAt() { return postedAt; }
+    public String getPostedAt() { return postedAt; }
 
     public void setId(String id) { this.id = id; }
     public void setTitle(String title) { this.title = title; }
@@ -32,7 +34,7 @@ public class NormalizedJob {
     public void setLocation(String location) { this.location = location; }
     public void setSource(String source) { this.source = source; }
     public void setApplyUrl(String applyUrl) { this.applyUrl = applyUrl; }
-    public void setPostedAt(Instant postedAt) { this.postedAt = postedAt; }
+    public void setPostedAt(String postedAt) { this.postedAt = postedAt; }
 
     @Override public boolean equals(Object o) {
         if (this == o) return true;

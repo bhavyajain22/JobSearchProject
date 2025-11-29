@@ -214,7 +214,7 @@ public class NaukriAdapter implements JobFetchPort {
             String company = textOr(card.selectFirst(".subTitle, .companyInfo span, a.company"));
             String loc = textOr(card.selectFirst(".ellipsis.loc, .location, .loc"));
             String url = hrefOr(card.selectFirst("a.title, a[href*=\"/job-\"], a[href*=\"/jobs/\"]"));
-            Instant postedAt = parsePostedAt(card.selectFirst(".type br + span, .type, .date, .posted, time"));
+            String postedAt = String.valueOf(parsePostedAt(card.selectFirst(".type br + span, .type, .date, .posted, time")));
 
             if (url == null || title == null) continue;
             out.add(new RawJob("naukri", title, nonNull(company), nonNull(loc), absolutize(url), postedAt, null));
@@ -232,7 +232,7 @@ public class NaukriAdapter implements JobFetchPort {
             String company = textOr(card.selectFirst(".subTitle, .company, .companyName"));
             String loc = textOr(card.selectFirst(".location, .loc"));
             String url = hrefOr(card.selectFirst("a[href*=\"/job-\"], a[href*=\"/jobs/\"]"));
-            Instant postedAt = parsePostedAt(card.selectFirst("time, .date, .posted"));
+            String postedAt = String.valueOf(parsePostedAt(card.selectFirst("time, .date, .posted")));
 
             if (url == null || title == null) continue;
             out.add(new RawJob("naukri", title, nonNull(company), nonNull(loc), absolutize(url), postedAt, null));

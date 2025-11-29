@@ -33,6 +33,13 @@ const Header: React.FC<HeaderProps> = ({ mobileMenuOpen, setMobileMenuOpen }) =>
               <Settings className="h-4 w-4" />
               <span>Preferences</span>
             </Link>
+            <Link
+              to="/alerts"
+              className="text-sm font-medium leading-6 text-gray-900 hover:text-blue-600"
+            >
+              Manage Alerts
+            </Link>
+
             <button className="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium">
               Sign In
             </button>

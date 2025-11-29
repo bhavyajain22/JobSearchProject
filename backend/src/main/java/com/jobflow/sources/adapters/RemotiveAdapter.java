@@ -54,8 +54,8 @@ public class RemotiveAdapter implements JobFetchPort {
                     String company = text(j, "company_name");
                     String apply = text(j, "url");
                     String created = text(j, "publication_date"); // ISO
-                    Instant postedAt = null;
-                    try { if (created != null) postedAt = ZonedDateTime.parse(created).toInstant(); } catch (Exception ignored) {}
+                    String postedAt = null;
+                    try { if (created != null) postedAt = String.valueOf(ZonedDateTime.parse(created).toInstant()); } catch (Exception ignored) {}
 
                     if (title == null || apply == null) continue;
                     // Remotive is remote by nature; location often empty → keep user’s location if provided

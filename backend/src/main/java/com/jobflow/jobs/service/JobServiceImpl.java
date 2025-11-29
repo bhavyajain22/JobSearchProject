@@ -63,8 +63,16 @@ public class JobServiceImpl implements JobService {
         // postedWithinDays (keep undated jobs to avoid hiding data; switch predicate to exclude nulls if you prefer)
         if (postedWithinDays != null && postedWithinDays > 0) {
             long cutoff = System.currentTimeMillis() - postedWithinDays * 24L * 60L * 60L * 1000L;
-            stream = stream.filter(j -> j.getPostedAt() == null || j.getPostedAt().toEpochMilli() >= cutoff);
-        }
+            stream = stream.filter(j -> {
+                String postedAtStr = j.getPostedAt();
+                if (postedAtStr == null || postedAtStr.isBlank()) return false;
+                try {
+                    Instant postedAtInstant = Instant.parse(postedAtStr);
+                    return postedAtInstant.toEpochMilli() >= cutoff;
+                } catch (Exception e) {
+                    return false; // skip invalid timestamps
+                }
+            });        }
 
         // companyContains (case-insensitive)
         if (companyContains != null && !companyContains.isBlank()) {
@@ -95,6 +103,14 @@ public class JobServiceImpl implements JobService {
                 .toList();
 
         return PageResponse.of(items, page, size, total);
+    }
+
+    private static Instant safeParse(String s) {
+        try {
+            return (s == null || s.isBlank()) ? null : Instant.parse(s);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     @Override
@@ -150,7 +166,7 @@ public class JobServiceImpl implements JobService {
 
         long now = System.currentTimeMillis();
         for (NormalizedJob j : filtered) {
-            Instant p = j.getPostedAt();
+            Instant p = safeParse(j.getPostedAt());;
             if (p == null) continue;
             long days = (now - p.toEpochMilli()) / (24L * 60L * 60L * 1000L);
             if (days <= 1)  recency.computeIfPresent("1",  (k, v) -> v + 1);

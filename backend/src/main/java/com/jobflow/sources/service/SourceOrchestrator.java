@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -42,6 +43,13 @@ public class SourceOrchestrator {
         String t = Objects.toString(title, "").trim().toLowerCase(Locale.ROOT);
         String l = Objects.toString(location, "").trim().toLowerCase(Locale.ROOT);
         return t + "|" + l + "|" + remoteOnly;
+    }
+    private static Instant safeParse(String s) {
+        try {
+            return (s == null || s.isBlank()) ? null : Instant.parse(s);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     /**
@@ -78,9 +86,8 @@ public class SourceOrchestrator {
             return raw.stream()
                     .map(this::normalize)
                     .distinct()
-                    .sorted(Comparator.comparing(
-                            NormalizedJob::getPostedAt,
-                            Comparator.nullsLast(Comparator.reverseOrder())
+                    .sorted(Comparator.comparing((NormalizedJob j) -> safeParse(j.getPostedAt()),
+                    Comparator.nullsLast(Comparator.reverseOrder())
                     ))
                     .limit(MAX_CACHE_ITEMS) // cap what we store to avoid huge memory
                     .toList();

@@ -70,10 +70,7 @@ console.log("VITE_API_URL =", import.meta.env.VITE_API_URL);
 
   return (
     <div className="min-h-screen bg-white">
-      <Header
-        mobileMenuOpen={mobileMenuOpen}
-        setMobileMenuOpen={setMobileMenuOpen}
-      />
+
       <main className="max-w-3xl mx-auto px-4 py-10">
         <h1 className="text-3xl font-bold mb-6">Tell us what you’re looking for</h1>
 

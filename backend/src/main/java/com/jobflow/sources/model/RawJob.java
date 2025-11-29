@@ -8,12 +8,12 @@ public class RawJob {
     private String company;
     private String location;
     private String applyUrl;
-    private Instant postedAt;
+    private String postedAt;
     private String description;
 
     public RawJob() {}
 
-    public RawJob(String source, String title, String company, String location, String applyUrl, Instant postedAt, String description) {
+    public RawJob(String source, String title, String company, String location, String applyUrl, String postedAt, String description) {
         this.source = source;
         this.title = title;
         this.company = company;
@@ -28,7 +28,7 @@ public class RawJob {
     public String getCompany() { return company; }
     public String getLocation() { return location; }
     public String getApplyUrl() { return applyUrl; }
-    public Instant getPostedAt() { return postedAt; }
+    public String getPostedAt() { return postedAt; }
     public String getDescription() { return description; }
 
     public void setSource(String source) { this.source = source; }
@@ -36,6 +36,6 @@ public class RawJob {
     public void setCompany(String company) { this.company = company; }
     public void setLocation(String location) { this.location = location; }
     public void setApplyUrl(String applyUrl) { this.applyUrl = applyUrl; }
-    public void setPostedAt(Instant postedAt) { this.postedAt = postedAt; }
+    public void setPostedAt(String postedAt) { this.postedAt = postedAt; }
     public void setDescription(String description) { this.description = description; }
 }
